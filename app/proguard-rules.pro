@@ -1,0 +1,1 @@
+-keep class br.edu.unemat.caceres.lousa.** { *; }
