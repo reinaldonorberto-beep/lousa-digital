@@ -113,7 +113,7 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 13px;
 #unemat-logo { margin-left: auto; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 3px; padding: 0 12px 0 14px; border-left: 1px solid #ffffff18; height: 100%; }
 #unemat-logo img { height: 28px; width: auto; display: block; }
 #unemat-logo-fallback { display: none; font-size: 16px; font-weight: 800; color: #fff; letter-spacing: 1.5px; }
-#unemat-logo .campus-txt { font-size: 8.5px; font-weight: 700; color: #ffffff60; letter-spacing: .6px; text-transform: uppercase; white-space: nowrap; text-align: right; }
+#unemat-logo .campus-txt { font-size: 11px; font-weight: 700; color: #ffffff80; letter-spacing: .5px; text-transform: uppercase; white-space: nowrap; text-align: right; }
 
 /* ─── LAYOUT ─── */
 #app { display: flex; flex-direction: column; width: 100vw; height: 100dvh; }
@@ -181,7 +181,9 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 13px;
 #pfill { height: 100%; background: var(--accent); width: 0%; transition: width .3s; }
 #plbl { font-size: 11px; color: var(--muted); }
 
-#bprev { position: fixed; pointer-events: none; border-radius: 50%; z-index: 9999; transform: translate(-50%,-50%); border: 1.5px solid rgba(0,0,0,.4); display: none; }
+#closeBtn { position: fixed; top: 8px; right: 8px; z-index: 9999; width: 32px; height: 32px; border-radius: 50%; border: none; background: #e94560; color: #fff; font-size: 18px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px #00000066; transition: background .15s, transform .1s; line-height: 1; }
+#closeBtn:hover { background: #c0314e; transform: scale(1.1); }
+#closeBtn:active { transform: scale(.95); }
 #txtin { position: fixed; display: none; z-index: 400; border: 2px solid var(--accent); border-radius: 5px; padding: 4px 7px; font-family: var(--font); font-size: 18px; background: white; color: #111; min-width: 90px; outline: none; }
 </style>
 </head>
@@ -251,9 +253,13 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 13px;
     <div class="sep"></div>
     <button class="tx" id="tOrient" onclick="toggleDD('ddOrient',event)"><span id="orIco">🖥️</span><span class="lb" id="orLbl">Formato</span></button>
     <div class="sep"></div>
-    <button class="cta cta-load" onclick="document.getElementById('fileIn').click()">
+    <button class="cta cta-load" id="btnLoad" onclick="triggerLoad()">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       Carregar
+    </button>
+    <button class="cta" style="background:#12281a;color:#6de06d;border:1.5px solid #265028;" onclick="savePagePNG()">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+      Salvar PNG
     </button>
     <button class="cta cta-exp" id="btnExp" onclick="toggleDD('ddExp',event)">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -309,6 +315,7 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 13px;
 </div><!-- /app -->
 
 <div id="bprev"></div>
+<button id="closeBtn" onclick="confirmClose()" title="Fechar aplicativo">✕</button>
 <div id="toast"></div>
 <input id="txtin" type="text" placeholder="Digite + Enter" onkeydown="onTxtKey(event)">
 <div id="modal"><div id="mbox">
@@ -557,8 +564,7 @@ vp.addEventListener('pointermove', e => {
   if(!drawing) updCursor(e);
 
   // Pan
-  if(isPanning){
-    const r = vp.getBoundingClientRect();
+  if(isPanning){\n    const r = vp.getBoundingClientRect();
     panX = panOX + (e.clientX - r.left - panSX);
     panY = panOY + (e.clientY - r.top  - panSY);
     applyT();
@@ -568,26 +574,28 @@ vp.addEventListener('pointermove', e => {
   // Ignora ponteiros que não são o de desenho
   if(!drawing || e.pointerId !== drawPID) return;
 
-  const p = toCanvas(e.clientX, e.clientY);
-
   if(isShape(tool)){
+    const p = toCanvas(e.clientX, e.clientY);
     ctx.putImageData(snapShape, 0, 0);
     applyStyle();
     drawShape(tool, sx, sy, p.x, p.y);
     return;
   }
 
-  // ── TRAÇO CONTÍNUO ──
-  // O path foi aberto no pointerdown e cresce aqui sem nunca fechar.
-  // lineTo garante continuidade perfeita sem picotamento.
-  ctx.lineTo(p.x, p.y);
+  // ── TRAÇO CONTÍNUO COM ZERO DELAY ──
+  // Usa getCoalescedEvents para capturar TODOS os pontos intermediários
+  // que o browser acumulou entre frames — elimina o "picotamento" do traço.
+  const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+  for(const ev of events){
+    const p = toCanvas(ev.clientX, ev.clientY);
+    ctx.lineTo(p.x, p.y);
+    lx = p.x; ly = p.y;
+  }
   ctx.stroke();
-  // Reinicia o path a partir do ponto atual para evitar
-  // que o path fique imenso (performance), mas sem lacunas.
+  // Reinicia o path a partir do ponto atual para manter continuidade
+  // sem deixar o path crescer indefinidamente (performance).
   ctx.beginPath();
-  ctx.moveTo(p.x, p.y);
-
-  lx = p.x; ly = p.y;
+  ctx.moveTo(lx, ly);
 });
 
 vp.addEventListener('pointerup', e => {
@@ -967,6 +975,20 @@ document.addEventListener('click', e=>{
 // ────────────────────────────────────────────
 // ARQUIVO
 // ────────────────────────────────────────────
+function triggerLoad(){
+  // Recria o input para garantir que o evento change sempre dispara
+  // (Android WebView às vezes bloqueia .click() em inputs ocultos)
+  const old = document.getElementById('fileIn');
+  const ni = document.createElement('input');
+  ni.type = 'file';
+  ni.id = 'fileIn';
+  ni.style.display = 'none';
+  ni.accept = '.pdf,.pptx,.png,.jpg,.jpeg,.gif,.bmp,.webp,.svg';
+  ni.onchange = function(){ handleFile(this); };
+  old.parentNode.replaceChild(ni, old);
+  ni.click();
+}
+
 async function handleFile(inp){
   const f=inp.files[0]; if(!f) return; inp.value='';
   const ext=f.name.split('.').pop().toLowerCase();
@@ -1097,7 +1119,12 @@ async function savePagePDF(){
 }
 
 function savePagePNG(){
-  const a=document.createElement('a'); a.download=`lousa-p${curPg+1}.png`; a.href=makeExportCanvas(curPg).toDataURL('image/png'); a.click(); toast('PNG salvo!');
+  const a=document.createElement('a');
+  const name=`lousa-p${curPg+1}.png`;
+  a.download=name;
+  a.href=makeExportCanvas(curPg).toDataURL('image/png');
+  a.click();
+  toast(`✅ Salvo em Downloads: ${name}`);
 }
 
 async function saveAllPNG(){
@@ -1115,6 +1142,17 @@ async function saveAllPNG(){
 // UI
 // ────────────────────────────────────────────
 let tT;
+function confirmClose(){
+  showModal('Fechar o aplicativo?','Certifique-se de ter salvo seu trabalho antes de sair.',()=>{
+    closeModal();
+    // Tenta fechar a janela (funciona em WebViews Android/iOS)
+    try{ window.close(); }catch(e){}
+    // Fallback: tenta navegar para about:blank
+    try{ if(window.Android && window.Android.closeApp) window.Android.closeApp(); }catch(e){}
+    try{ history.go(-(history.length)); }catch(e){}
+  });
+}
+
 function toast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show'); clearTimeout(tT); tT=setTimeout(()=>el.classList.remove('show'),2500); }
 function showModal(t,m,cb){ document.getElementById('mtit').textContent=t; document.getElementById('mmsg').textContent=m; document.getElementById('mokBtn').onclick=cb; document.getElementById('modal').classList.add('open'); }
 function closeModal(){ document.getElementById('modal').classList.remove('open'); }
