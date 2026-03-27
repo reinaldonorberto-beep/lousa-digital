@@ -1,34 +1,38 @@
-name: Build Lousa Digital APK
+name: Build APK Debug
 
 on:
   push:
     branches: [ main, master ]
-  workflow_dispatch:
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # permite rodar manualmente pelo GitHub
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: 📥 Baixar código
         uses: actions/checkout@v4
 
-      - name: Java 17
+      - name: ☕ Configurar Java 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Instalar Gradle
+      - name: 🐘 Configurar Gradle cache
         uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: '8.4'
 
-      - name: Build APK
-        run: gradle assembleDebug --project-dir . --stacktrace
+      - name: 🔑 Dar permissão ao gradlew
+        run: chmod +x ./gradlew
 
-      - name: Upload APK
+      - name: 🔨 Compilar APK Debug
+        run: ./gradlew assembleDebug
+
+      - name: 📦 Publicar APK como artefato
         uses: actions/upload-artifact@v4
         with:
-          name: Lousa-Digital-APK
+          name: app-debug
           path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
